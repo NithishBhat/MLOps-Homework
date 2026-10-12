@@ -1,0 +1,20 @@
+{
+    "timestamp": "20261012212036",
+    "holdout_size": 2000,
+    "min_f1": 0.8,
+    "raw": {
+        "f1": 0.8685,
+        "accuracy": 0.866,
+        "roc_auc": 0.9362,
+        "brier": 0.1003
+    },
+    "calibrated": {
+        "f1": 0.8688,
+        "accuracy": 0.8665,
+        "roc_auc": 0.9362,
+        "brier": 0.0954
+    },
+    "passed_gate": true,
+    "previous_champion": null,
+    "promoted": true
+}

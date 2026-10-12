@@ -1,0 +1,8 @@
+{
+    "timestamp": "20261012212036",
+    "model": "models/model_20261012212036.joblib",
+    "f1": 0.8688,
+    "accuracy": 0.8665,
+    "roc_auc": 0.9362,
+    "brier": 0.0954
+}
