@@ -7,6 +7,24 @@ results back to the repo. I rewrote the pipeline (the workflow and the scripts
 it runs) as a **gated train → calibrate → evaluate → promote** pipeline. The
 full list of changes is in [What I changed](#what-i-changed).
 
+### Summary of changes
+
+**Pipeline** (`.github/workflows/lab2_model_pipeline.yml`)
+- Merged the original two workflows into one.
+- Tests run on Python 3.11 and 3.13 before any training starts.
+- Quality gate: the run fails, and commits nothing, if F1 is below the threshold.
+- Champion/challenger: a new model replaces the saved one only if it scores at least as well.
+- Can be started manually (choose sample size, threshold and calibration method). It also runs weekly, and pull requests only run the tests.
+- Each run posts a results table on its GitHub page, saves its files for download, and commits safely as `github-actions[bot]`.
+
+**Scripts** (`src/`)
+- New `data.py`: the original scored the model on its own training data, with a random sample size that could be 0. Now every run is scored on the same fixed set of 2,000 unseen rows.
+- New `calibrate_model.py`: the original calibration workflow never calibrated anything. Now it does, which lowers the Brier score (for example 0.100 → 0.095; closer to 0 means more accurate probabilities).
+- Rewritten `evaluate_model.py`: computes the metrics, applies the quality gate and decides whether to promote the new model.
+- Updated `train_model.py`: cleaner MLflow logging and compressed model files.
+- New `test/test_pipeline.py`: 8 tests.
+- `requirements.txt`: versions pinned.
+
 ---
 
 ## 1. What you need installed
