@@ -22,3 +22,7 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Lab2 pipeline outputs (models/ and metrics/ are committed by CI)
+Lab2/artifacts/
+Lab2/mlruns/

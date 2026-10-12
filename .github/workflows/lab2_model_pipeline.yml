@@ -1,0 +1,140 @@
+name: Lab2 - Train, Calibrate & Promote Model
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Lab2/src/**'
+      - 'Lab2/test/**'
+      - 'Lab2/requirements.txt'
+      - '.github/workflows/lab2_model_pipeline.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Lab2/src/**'
+      - 'Lab2/test/**'
+      - 'Lab2/requirements.txt'
+      - '.github/workflows/lab2_model_pipeline.yml'
+  schedule:
+    - cron: '0 6 * * 1'   # every Monday 06:00 UTC: retrain on a fresh data sample
+  workflow_dispatch:
+    inputs:
+      n_samples:
+        description: 'Number of training rows to sample (200-8000)'
+        default: '2000'
+        type: string
+      min_f1:
+        description: 'Quality gate: minimum hold-out F1 required'
+        default: '0.80'
+        type: string
+      calibration_method:
+        description: 'Probability calibration method'
+        default: sigmoid
+        type: choice
+        options: [sigmoid, isotonic]
+
+permissions:
+  contents: write   # needed to commit metrics / promoted model back to the repo
+
+# Never run two pipelines at once: both would try to update champion.json.
+concurrency:
+  group: lab2-model-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  N_SAMPLES: ${{ inputs.n_samples || '2000' }}
+  MIN_F1: ${{ inputs.min_f1 || '0.80' }}
+  CAL_METHOD: ${{ inputs.calibration_method || 'sigmoid' }}
+
+defaults:
+  run:
+    working-directory: Lab2
+
+jobs:
+  test:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: Lab2/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        run: pytest --junitxml=pytest-report.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab2-test-report-py${{ matrix.python-version }}
+          path: Lab2/pytest-report.xml
+
+  train:
+    name: Train, calibrate, evaluate
+    needs: test
+    # PRs only run the tests; models are trained from main.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: Lab2/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate model version
+        run: echo "TIMESTAMP=$(date -u '+%Y%m%d%H%M%S')" >> "$GITHUB_ENV"
+
+      - name: Train model
+        # run_number as the seed gives every run a different training sample.
+        run: python -m src.train_model --timestamp "$TIMESTAMP" --n-samples "$N_SAMPLES" --seed "${{ github.run_number }}"
+
+      - name: Calibrate model
+        run: python -m src.calibrate_model --timestamp "$TIMESTAMP" --method "$CAL_METHOD"
+
+      - name: Evaluate, quality gate, champion/challenger
+        id: evaluate
+        run: python -m src.evaluate_model --timestamp "$TIMESTAMP" --min-f1 "$MIN_F1"
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab2-run-${{ env.TIMESTAMP }}
+          path: |
+            Lab2/artifacts/
+            Lab2/metrics/
+            Lab2/mlruns/
+          retention-days: 14
+
+      - name: Commit metrics and promoted model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898729+github-actions[bot]@users.noreply.github.com"
+          git add metrics/
+          if [ "${{ steps.evaluate.outputs.promoted }}" = "true" ]; then
+            git add -A models/
+          fi
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "Lab2: model $TIMESTAMP (promoted=${{ steps.evaluate.outputs.promoted }}) [skip ci]"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"

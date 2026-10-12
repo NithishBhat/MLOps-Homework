@@ -1,14 +1,24 @@
-name: Testing with Pytest
-run-name: Pytest
+name: Lab1 - Testing with Pytest
+run-name: Lab1 Pytest
 
 on:
   push:
     branches:
       - main
       - 'releases/**'
+    paths:
+      - 'Lab1/**'
+      - '.github/workflows/pytest_action.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'Lab1/**'
+      - '.github/workflows/pytest_action.yml'
+
+defaults:
+  run:
+    working-directory: Lab1
 
 jobs:
   build:
@@ -35,7 +45,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: pytest-report.xml
+        path: Lab1/pytest-report.xml
 
     - name: Notify on success
       if: success()

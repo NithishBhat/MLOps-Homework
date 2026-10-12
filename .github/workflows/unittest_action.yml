@@ -1,12 +1,22 @@
-name: Python Unittests
+name: Lab1 - Python Unittests
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'Lab1/**'
+      - '.github/workflows/unittest_action.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'Lab1/**'
+      - '.github/workflows/unittest_action.yml'
+
+defaults:
+  run:
+    working-directory: Lab1
 
 jobs:
   build:
