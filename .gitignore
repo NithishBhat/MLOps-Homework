@@ -26,3 +26,8 @@ Thumbs.db
 # Lab2 pipeline outputs (models/ and metrics/ are committed by CI)
 Lab2/artifacts/
 Lab2/mlruns/
+
+# Lab3 container outputs and saved images
+Lab3/output/
+Lab3/*.tar
+Lab3/*.tar.gz

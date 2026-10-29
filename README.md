@@ -8,6 +8,7 @@ in its own folder with its own README, requirements and tests.
 |---|---|---|---|
 | Lab 1 | [`Lab1/`](Lab1/) | Virtualenv, pytest + unittest, GitHub Actions CI | `pytest_action.yml`, `unittest_action.yml` |
 | Lab 2 | [`Lab2/`](Lab2/) | GitHub Actions for model training, calibration, evaluation and versioning | `lab2_model_pipeline.yml` |
+| Lab 3 | [`Lab3/`](Lab3/) | Docker: build, run and save an image that trains and compares models | `lab3_docker.yml` |
 
 All workflows are in [`.github/workflows/`](.github/workflows/) (GitHub only
 reads workflows from the repo root). Each one has a `paths:` filter, so a

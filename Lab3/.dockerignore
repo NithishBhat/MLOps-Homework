@@ -1,0 +1,11 @@
+# Only src/ is copied into the image; keep everything else out of the build context
+output/
+test/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.tar
+*.tar.gz
+README.md

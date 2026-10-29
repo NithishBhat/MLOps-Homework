@@ -1,0 +1,111 @@
+name: Lab3 - Build, Run & Save Docker Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Lab3/**'
+      - '.github/workflows/lab3_docker.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Lab3/**'
+      - '.github/workflows/lab3_docker.yml'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model to train in the container'
+        default: all
+        type: choice
+        options: [all, logistic_regression, random_forest, gradient_boosting]
+      min_accuracy:
+        description: 'Quality gate: minimum hold-out accuracy of the best model'
+        default: '0.90'
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: lab3:v1
+  MODEL: ${{ inputs.model || 'all' }}
+  MIN_ACCURACY: ${{ inputs.min_accuracy || '0.90' }}
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: Lab3/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  docker:
+    name: Build, run and save image
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+
+      - name: Show image size
+        run: docker image ls "$IMAGE"
+
+      # The container runs as a non-root user (uid 1000) that doesn't own the runner's folder,
+      # so the mounted folder has to be writable by everyone
+      - name: Train models in the container
+        run: |
+          mkdir -p output && chmod 777 output
+          docker run --rm \
+            -v "$PWD/output:/app/output" \
+            -e MODEL="$MODEL" -e MIN_ACCURACY="$MIN_ACCURACY" \
+            "$IMAGE"
+
+      - name: Predict with the saved model
+        run: |
+          docker run --rm \
+            -v "$PWD/output:/app/output" \
+            "$IMAGE" python predict.py -n 8
+
+      - name: Write results to the run summary
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          r = json.load(open("output/metrics.json"))
+          print(f"## Lab3 results (seed {r['seed']}, {r['n_train']} train / {r['n_test']} test rows)\n")
+          print("| Model | CV accuracy | Accuracy | F1 | ROC-AUC |")
+          print("|---|---|---|---|---|")
+          for name, m in r["results"].items():
+              star = " (best)" if name == r["best_model"] else ""
+              print(f"| {name}{star} | {m['cv_accuracy']} | {m['accuracy']} | {m['f1']} | {m['roc_auc']} |")
+          print(f"\nQuality gate (accuracy >= {r['min_accuracy']}): {'passed' if r['passed_gate'] else 'failed'}")
+          EOF
+
+      - name: Save image to a tar file
+        run: docker save "$IMAGE" | gzip > lab3_v1.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lab3-run-${{ github.run_number }}
+          path: |
+            Lab3/output/
+            Lab3/lab3_v1.tar.gz
+          retention-days: 7
