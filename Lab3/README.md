@@ -71,12 +71,20 @@ Mount a local `output/` folder at `/app/output` so the models and metrics are
 kept after the container exits:
 
 ```bash
-# macOS / Linux / Git Bash
+# macOS / Linux
 docker run --rm -v "$PWD/output:/app/output" lab3:v1
 
 # Windows PowerShell
 docker run --rm -v "${PWD}/output:/app/output" lab3:v1
+
+# Windows Git Bash ($PWD there is a /c/... path that Docker can't mount)
+docker run --rm -v "$(pwd -W)/output:/app/output" lab3:v1
 ```
+
+The examples further down use the macOS / Linux form. On Windows, replace
+`$PWD` with `${PWD}` (PowerShell) or `$(pwd -W)` (Git Bash). If the run
+finishes but no `output/` folder appears, the mount path was wrong and the
+results stayed inside the removed container.
 
 Output:
 
