@@ -31,3 +31,6 @@ Lab2/mlruns/
 Lab3/output/
 Lab3/*.tar
 Lab3/*.tar.gz
+
+# Lab4 trained model (created by `python -m src.train` or the Docker build)
+Lab4/model/

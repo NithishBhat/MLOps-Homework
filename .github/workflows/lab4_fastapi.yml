@@ -1,0 +1,103 @@
+name: Lab4 - Test & Serve FastAPI Model
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Lab4/**'
+      - '.github/workflows/lab4_fastapi.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Lab4/**'
+      - '.github/workflows/lab4_fastapi.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: Lab4/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  docker:
+    name: Build image and smoke-test the API
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image (trains the model)
+        run: docker build -t lab4:v1 .
+
+      - name: Start the API container
+        run: |
+          docker run -d --name lab4-api -p 8000:8000 lab4:v1
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && exit 0
+            sleep 1
+          done
+          docker logs lab4-api
+          exit 1
+
+      - name: Call the endpoints
+        run: |
+          payload='{"alcohol":14.23,"malic_acid":1.71,"ash":2.43,"alcalinity_of_ash":15.6,"magnesium":127,
+                    "total_phenols":2.8,"flavanoids":3.06,"nonflavanoid_phenols":0.28,"proanthocyanins":2.29,
+                    "color_intensity":5.64,"hue":1.04,"od280_od315":3.92,"proline":1065}'
+
+          echo "POST /predict"
+          curl -sf -X POST http://localhost:8000/predict -H 'Content-Type: application/json' -d "$payload" | tee predict.json
+          echo
+          grep -q '"cultivar":"cultivar_1"' predict.json
+
+          echo "POST /predict/batch"
+          curl -sf -X POST http://localhost:8000/predict/batch -H 'Content-Type: application/json' \
+            -d "{\"wines\": [$payload, $payload]}" | grep -q '"count":2'
+
+          echo "POST /predict with an invalid body must return 422"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/predict \
+            -H 'Content-Type: application/json' -d '{"alcohol": -1}')
+          test "$code" = 422
+
+          curl -sf http://localhost:8000/model/info > model_info.json
+          curl -sf -o /dev/null http://localhost:8000/docs
+
+      - name: Write model info to the run summary
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          info = json.load(open("model_info.json"))
+          print(f"## Lab4 model {info['version']} ({info['model']}, {info['n_train']} train / {info['n_test']} test rows)\n")
+          print("| Metric | Value |")
+          print("|---|---|")
+          for name, value in info["metrics"].items():
+              print(f"| {name} | {value} |")
+          top = list(info["feature_importance"].items())[:5]
+          print("\nTop features: " + ", ".join(f"{n} ({v})" for n, v in top))
+          EOF
+
+      - name: Container logs
+        if: always()
+        run: docker logs lab4-api || true
