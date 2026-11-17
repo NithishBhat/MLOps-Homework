@@ -140,7 +140,11 @@ pytest
 ```
 
 ```
-......................sssss                                              [100%]
+test/test_api_client.py .......                                          [ 25%]
+test/test_dashboard.py .......                                           [ 51%]
+test/test_inputs.py ........                                             [ 81%]
+test/test_live.py sssss                                                  [100%]
+
 22 passed, 5 skipped
 ```
 

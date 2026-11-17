@@ -35,7 +35,7 @@ setup. The full list is in [What I changed](#what-i-changed).
 |---|---|---|
 | Docker | Docker Desktop 4.x or Docker Engine 24+ with Compose v2 | <https://docs.docker.com/get-docker/>. Give Docker at least 4 GB of memory. The running container uses about 1.8 GB. |
 | Git | any recent (2.30+) | <https://git-scm.com/downloads> |
-| Python | 3.12 (optional) | Only to run the pipeline tests without Docker |
+| Python | 3.12 or 3.13 (optional) | Only to run the pipeline tests without Docker (CI uses 3.12) |
 
 The image is built from `apache/airflow:3.3.2-python3.12`. It already contains
 numpy 2.5.3, scipy 1.18.1, scikit-learn 1.9.1 and joblib 1.6.0. The only extra
@@ -153,7 +153,7 @@ failed without writing a report.
 
 ## 4. Run the tests
 
-**Pipeline tests** (no Airflow needed; Python 3.12 recommended):
+**Pipeline tests** (no Airflow needed; Python 3.12 or 3.13):
 
 ```bash
 python -m venv .venv
@@ -164,7 +164,7 @@ pytest
 ```
 
 ```
-.......s                                                                 [100%]
+test/test_pipeline.py .......                                            [100%]
 7 passed, 1 skipped
 ```
 
