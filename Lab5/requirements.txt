@@ -1,0 +1,3 @@
+# Installed on top of the apache/airflow:3.3.2-python3.12 image, which already ships
+# numpy 2.5.3, scipy 1.18.1, scikit-learn 1.9.1 and joblib 1.6.0
+kneed==0.9.0

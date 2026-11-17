@@ -1,0 +1,34 @@
+# Single-container Airflow for local development.
+#
+# `airflow standalone` runs the API server (UI on :8080), scheduler, DAG processor and
+# triggerer in one container, with a SQLite database. That is enough for this lab and
+# uses far less memory than the official compose file (Postgres + Redis + Celery workers).
+# Not meant for production.
+services:
+  airflow:
+    build: .
+    image: lab5-airflow:3.3.2
+    command: standalone
+    # On Linux, put AIRFLOW_UID=$(id -u) in .env so files in working_data/ and logs/ belong to you
+    user: "${AIRFLOW_UID:-50000}:0"
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      # Login user (step 2d of the original lab changes the default credentials). Airflow generates a
+      # random password for it on first start; see the README for how to read it.
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USER:-admin}:admin"
+      # Pick up new or edited DAG files within 30 seconds
+      AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+      LAB5_WORKING_DIR: /opt/airflow/working_data
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./working_data:/opt/airflow/working_data
+      - ./logs:/opt/airflow/logs
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped

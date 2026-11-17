@@ -1,0 +1,7 @@
+# The image only needs requirements.txt; dags/ is mounted at run time
+dags/
+test/
+working_data/
+logs/
+.env
+README.md

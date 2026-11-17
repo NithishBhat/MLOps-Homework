@@ -1,0 +1,85 @@
+name: Lab5 - Airflow Clustering DAG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Lab5/**'
+      - '.github/workflows/lab5_airflow.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Lab5/**'
+      - '.github/workflows/lab5_airflow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Pipeline tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: Lab5/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  dag:
+    name: Run the DAG in Airflow
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the Airflow image
+        run: docker compose build
+
+      # Same as step 2c of the original lab: files the container writes belong to the runner user
+      - name: Set the Airflow user
+        run: |
+          mkdir -p working_data logs
+          echo "AIRFLOW_UID=$(id -u)" > .env
+
+      # Parses the DAG folder with Airflow's DagBag: no import errors, the right tasks and order
+      - name: DAG structure tests (inside the Airflow image)
+        run: |
+          docker compose run --rm -v "$PWD/test:/opt/airflow/test" airflow bash -c "
+            pip install -q pytest==8.3.5 &&
+            python -m pytest /opt/airflow/test/test_dag.py -v -p no:cacheprovider"
+
+      - name: Run the whole DAG (airflow dags test)
+        run: |
+          docker compose run --rm airflow bash -c "
+            airflow db migrate > /dev/null &&
+            airflow dags test lab5_digit_clustering" | tail -20
+          report=$(ls working_data/*/report.md)
+          echo "Report: $report"
+          grep -q '| passed_gate | True |' "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab5-run-${{ github.run_number }}
+          path: |
+            Lab5/working_data/*/report.md
+            Lab5/working_data/*/metrics.json
+            Lab5/working_data/*/model.joblib
+          retention-days: 7

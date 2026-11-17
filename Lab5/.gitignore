@@ -1,0 +1,4 @@
+# Created by Airflow / pipeline runs
+working_data/
+logs/
+.env
