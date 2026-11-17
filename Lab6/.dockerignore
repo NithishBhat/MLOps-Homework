@@ -1,0 +1,8 @@
+# Only requirements.txt and dashboard/ go into the image
+test/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+README.md

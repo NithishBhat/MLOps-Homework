@@ -1,0 +1,10 @@
+[browser]
+# Don't send usage statistics to Streamlit
+gatherUsageStats = false
+
+[server]
+# Uploads are small JSON/CSV files
+maxUploadSize = 5
+
+[theme]
+primaryColor = "#8e2443"

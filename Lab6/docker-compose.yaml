@@ -1,0 +1,21 @@
+# The dashboard and its backend, started together.
+# The backend is the Lab4 FastAPI service, built unchanged from ../Lab4.
+services:
+  api:
+    build: ../Lab4
+    image: lab4:v1
+    ports:
+      - "8000:8000"
+    # The Lab4 image has its own HEALTHCHECK on /health
+
+  dashboard:
+    build: .
+    image: lab6-dashboard:v1
+    ports:
+      - "8501:8501"
+    environment:
+      # Inside the compose network the API is reachable by its service name
+      API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy

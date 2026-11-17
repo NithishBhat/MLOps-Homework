@@ -1,0 +1,75 @@
+name: Lab6 - Streamlit Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Lab6/**'
+      - '.github/workflows/lab6_streamlit.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Lab6/**'
+      - '.github/workflows/lab6_streamlit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Dashboard tests (fake backend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: Lab6/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  live:
+    name: Dashboard + Lab4 API in Docker
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Lab6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: Lab6/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # Builds the dashboard image and the unchanged Lab4 API image, and waits until both are healthy
+      - name: Start the containers
+        run: docker compose up -d --build --wait
+
+      - name: Health checks
+        run: |
+          docker compose ps
+          curl -sf http://localhost:8501/_stcore/health
+          curl -sf http://localhost:8000/health
+
+      - name: End-to-end tests against the real API
+        run: LAB6_LIVE_API=1 pytest test/test_live.py -v
+
+      - name: Container logs
+        if: always()
+        run: docker compose logs
